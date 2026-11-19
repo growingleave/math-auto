@@ -33,7 +33,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     match_p.add_argument("--format", choices=["md", "json"], default="md")
 
-    build_p = sub.add_parser("build", help="매칭 -> Vision 추출 -> PDF 생성 -> 업로드까지 전체 실행")
+    compile_p = sub.add_parser(
+        "compile", help="매칭 -> 원본 사진 그대로 PDF에 배치 -> 업로드 (텍스트 재추출 없음, API 비용 최소)"
+    )
+    compile_p.add_argument("--source", required=True, help="local:<경로> 또는 drive:<폴더ID>")
+    compile_p.add_argument(
+        "--output", help="local:<경로> 또는 drive:<폴더ID>; 생략하면 --source와 같은 곳에 저장"
+    )
+    compile_p.add_argument("--credentials", help="구글 드라이브 서비스 계정 json 경로 (source/output이 drive일 때 필요)")
+    compile_p.add_argument("--title", default="문제집")
+    compile_p.add_argument("--output-name", default="workbook.pdf")
+    compile_p.add_argument("--no-vision-classify", action="store_true")
+
+    build_p = sub.add_parser("build", help="매칭 -> Vision으로 텍스트 재추출 -> PDF 생성 -> 업로드까지 전체 실행")
     build_p.add_argument("--source", required=True, help="local:<경로> 또는 drive:<폴더ID>")
     build_p.add_argument(
         "--output", help="local:<경로> 또는 drive:<폴더ID>; 생략하면 --source와 같은 곳에 저장"
@@ -46,6 +58,16 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_result_common(match_report, entries_built, output_location):
+    print(match_report.to_markdown())
+    print()
+    print(f"생성된 문제 수: {entries_built}")
+    if output_location:
+        print(f"저장 위치: {output_location}")
+    else:
+        print("생성된 문제가 없어 PDF를 만들지 않았습니다.")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
@@ -56,6 +78,19 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
         else:
             print(report.to_markdown())
+        return 0
+
+    if args.command == "compile":
+        source = _parse_source(args.source, args.credentials)
+        output_source = _parse_source(args.output, args.credentials) if args.output else source
+        result = pipeline.run_compile(
+            source,
+            output_source=output_source,
+            title=args.title,
+            output_name=args.output_name,
+            use_vision_classifier=not args.no_vision_classify,
+        )
+        _print_result_common(result.match_report, result.entries_built, result.output_location)
         return 0
 
     if args.command == "build":

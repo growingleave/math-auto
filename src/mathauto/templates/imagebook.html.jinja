@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; margin: 0; color: #111; }
+  h1 { text-align: center; }
+  h2 { margin: 0 0 12px 0; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; align-content: flex-start; justify-content: flex-start; }
+  .item { flex: 0 0 auto; max-width: 47%; margin-bottom: 10px; page-break-inside: avoid; text-align: center; }
+  .item img { max-width: 100%; max-height: 380px; display: block; margin: 0 auto; border: 1px solid #ddd; }
+  .caption { font-weight: bold; margin-top: 4px; }
+  .answer-section { page-break-before: always; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+
+<div class="grid">
+{% for e in problem_entries %}
+  <div class="item">
+    <div class="caption">{{ e.number }}.</div>
+    <img src="data:{{ e.mime_type }};base64,{{ e.data_b64 }}">
+  </div>
+{% endfor %}
+</div>
+
+<div class="answer-section">
+  <h2>정답</h2>
+  <div class="grid">
+  {% for e in answer_entries %}
+    <div class="item">
+      <div class="caption">{{ e.number }}.</div>
+      <img src="data:{{ e.mime_type }};base64,{{ e.data_b64 }}">
+    </div>
+  {% endfor %}
+  </div>
+</div>
+</body>
+</html>

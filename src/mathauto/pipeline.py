@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from . import extractor, workbook
+from . import extractor, imagebook, workbook
 from .matcher import MatchReport, match
 from .pdf import render_pdf
 from .sources import FileSource
@@ -38,10 +38,42 @@ class BuildResult:
     output_location: Optional[str] = None
 
 
+@dataclass
+class CompileResult:
+    match_report: MatchReport
+    entries_built: int = 0
+    output_location: Optional[str] = None
+
+
 def run_match(source: FileSource, use_vision_classifier: bool = True) -> MatchReport:
     classify_fn = extractor.make_classify_role_fn(source) if use_vision_classifier else None
     files = source.list_files()
     return match(files, classify_role_fn=classify_fn)
+
+
+def run_compile(
+    source: FileSource,
+    output_source: Optional[FileSource] = None,
+    title: str = "문제집",
+    output_name: str = "workbook.pdf",
+    use_vision_classifier: bool = True,
+) -> CompileResult:
+    """Matches files, then places the original photos straight into a PDF (no text extraction)."""
+    output_source = output_source or source
+    report = run_match(source, use_vision_classifier=use_vision_classifier)
+
+    if not report.pairs:
+        return CompileResult(match_report=report, entries_built=0, output_location=None)
+
+    problem_entries, answer_entries = imagebook.build_entries_from_pairs(source, report.pairs)
+    html = imagebook.render_html(problem_entries, answer_entries, title=title)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        local_path = Path(tmp_dir) / output_name
+        render_pdf(html, local_path)
+        output_location = output_source.upload(local_path, output_name)
+
+    return CompileResult(match_report=report, entries_built=len(report.pairs), output_location=output_location)
 
 
 def run_build(
